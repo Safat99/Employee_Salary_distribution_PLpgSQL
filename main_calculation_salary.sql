@@ -99,7 +99,7 @@ $$
 
 
 
-
+select find_total_working_days ();
 
 --------------------------------------------------------------------
 create or replace procedure insert_salary_report()
@@ -186,3 +186,68 @@ begin
 			d.salary, sr.allocated_salary;
 end;
 $$
+
+--------find total off days------------------
+create or replace function find_offdays(year int, month int)
+returns int
+language plpgsql
+as
+$$
+declare
+	offdays_count integer;
+	result_date date;
+begin
+	select make_date(year, month, 1) into result_date;
+	
+	select count(*)
+	into offdays_count 
+	from 
+		(
+			select to_char(weekend_dates, 'yyyy-mm-dd') 
+			from generate_series(
+				date_trunc('month', result_date),
+				date_trunc('month', result_date) + interval '1 month - 1 day',
+				interval '1 day'
+			) as weekend_dates
+			where extract ('isodow' from weekend_dates) in (5,6)
+			union
+			(
+			select to_char(date, 'yyyy-mm-dd')
+			from holiday 
+			where date between 
+			date_trunc('month', result_date) and date_trunc('month', result_date) + interval '1 month - 1 day' 
+			order by date
+			)
+		) as subquery;
+	
+	return offdays_count;
+end;
+$$;
+
+select find_offdays(2023,02);
+
+-------------------
+create or replace function find_total_days(year int, month int)
+returns int
+language plpgsql
+as
+$$
+declare
+	total_days integer;
+	result_date date;
+begin
+	select make_date(year, month, 1) into result_date;
+	
+	select date_part(
+		'days',
+		date_trunc('month', result_date) 
+		+ interval '1 month - 1 day'
+	) into total_days;
+
+	return total_days;
+end;
+$$;
+
+select find_total_days(2023,06);
+
+
